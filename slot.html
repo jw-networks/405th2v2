@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    html, body { margin:0; width:100%; height:100%; background:transparent; overflow:hidden; }
+    #wrap { width:100%; height:100%; }
+    iframe { width:100%; height:100%; border:0; }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <iframe id="vdo" allow="autoplay;camera;microphone;fullscreen" referrerpolicy="no-referrer"></iframe>
+  </div>
+
+  <script type="module">
+    import { qs, resolveSlotAssignment, norm } from "./common.js";
+
+    const SHEET_ID = qs("sheet", "");
+    const SLOT = qs("slot", "G1");
+    const TYPE = norm(qs("type", "cam")).toLowerCase(); // cam | game
+    const PASS = qs("pass", ""); // optional; but recommended
+    const POLL_MS = parseInt(qs("poll", "1500"), 10);
+
+    if (!SHEET_ID) {
+      document.getElementById("vdo").src = "about:blank";
+      console.error("Missing ?sheet=YOUR_SHEET_ID");
+    }
+
+    let lastFeedId = "";
+
+    function makeVdoViewUrl(feedId) {
+      const pass = PASS ? `&password=${encodeURIComponent(PASS)}` : "";
+      // cleanoutput removes UI chrome; you can add &solo if you want.
+      return `https://vdo.ninja/?view=${encodeURIComponent(feedId)}${pass}&cleanoutput=1`;
+    }
+
+    async function update() {
+      if (!SHEET_ID) return;
+
+      const info = await resolveSlotAssignment({ sheetId: SHEET_ID, slot: SLOT });
+      const feedId = TYPE === "game" ? norm(info?.gameId) : norm(info?.camId);
+
+      const iframe = document.getElementById("vdo");
+
+      if (!feedId) {
+        if (lastFeedId !== "") {
+          iframe.src = "about:blank";
+          lastFeedId = "";
+        }
+        return;
+      }
+
+      if (feedId !== lastFeedId) {
+        iframe.src = makeVdoViewUrl(feedId);
+        lastFeedId = feedId;
+      }
+    }
+
+    update();
+    setInterval(() => update().catch(console.error), POLL_MS);
+  </script>
+</body>
+</html>
